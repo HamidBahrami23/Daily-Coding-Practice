@@ -9,7 +9,7 @@ This project implements a machine learning solution for the classic Titanic surv
 ## Model Performance
 
 - **Logistic Regression**: Achieved an accuracy of 0.79 (79%)
-- **XGBoost**: Achieved an accuracy of 0.80-0.84 (80-84%)
+- **XGBoost**: Achieved an accuracy of 0.80-0.84 (80-85%)
 
 ## Features
 
