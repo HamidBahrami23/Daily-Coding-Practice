@@ -1,0 +1,238 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "id": "8ff45cbf-3ac3-4e60-b568-57621acc3aa3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 1: Import necessary libraries (uncomment for removing warnings)\n",
+    "# import os\n",
+    "# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Suppress oneDNN warning\n",
+    "# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'   # Suppress TF info/warnings (0=all, 1=info off, 2=info/warn off, 3=all off)\n",
+    "import tensorflow as tf\n",
+    "# tf.get_logger().setLevel('ERROR')  # Further reduce TF logging\n",
+    "\n",
+    "from tensorflow.keras import layers, models\n",
+    "from tensorflow.keras.datasets import mnist\n",
+    "from tensorflow.keras.utils import to_categorical\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "a7072800-86c2-43c5-9021-b4c132132bee",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "NameError",
+     "evalue": "name 'cite' is not defined",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mNameError\u001b[0m                                 Traceback (most recent call last)",
+      "Cell \u001b[0;32mIn[32], line 2\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[38;5;66;03m# Step 2: Load and preprocess the MNIST dataset\u001b[39;00m\n\u001b[0;32m----> 2\u001b[0m (train_images, train_labels), (test_images, test_labels) \u001b[38;5;241m=\u001b[39m mnist\u001b[38;5;241m.\u001b[39mload_data() [\u001b[43mcite\u001b[49m: \u001b[38;5;241m42\u001b[39m]\n\u001b[1;32m      4\u001b[0m \u001b[38;5;66;03m# Reshape to add channel dimension (1 for grayscale) and normalize to [0,1] \u001b[39;00m\n\u001b[1;32m      5\u001b[0m train_images \u001b[38;5;241m=\u001b[39m train_images\u001b[38;5;241m.\u001b[39mreshape((\u001b[38;5;241m60000\u001b[39m, \u001b[38;5;241m28\u001b[39m, \u001b[38;5;241m28\u001b[39m, \u001b[38;5;241m1\u001b[39m))\u001b[38;5;241m.\u001b[39mastype(\u001b[38;5;124m'\u001b[39m\u001b[38;5;124mfloat32\u001b[39m\u001b[38;5;124m'\u001b[39m) \u001b[38;5;241m/\u001b[39m \u001b[38;5;241m255\u001b[39m\n",
+      "\u001b[0;31mNameError\u001b[0m: name 'cite' is not defined"
+     ]
+    }
+   ],
+   "source": [
+    "# Step 2: Load and preprocess the MNIST dataset\n",
+    "(train_images, train_labels), (test_images, test_labels) = mnist.load_data() [cite: 42]\n",
+    "\n",
+    "# Reshape to add channel dimension (1 for grayscale) and normalize to [0,1] \n",
+    "train_images = train_images.reshape((60000, 28, 28, 1)).astype('float32') / 255\n",
+    "test_images = test_images.reshape((10000, 28, 28, 1)).astype('float32') / 255\n",
+    "\n",
+    "# >>> FIX: Apply Zero-Padding to change 28x28 images to 32x32 <<<\n",
+    "# The amount of padding is (2, 2) on both height and width dimensions (28 + 2*2 = 32)\n",
+    "train_images_padded = np.pad(train_images, ((0, 0), (2, 2), (2, 2), (0, 0)), 'constant')\n",
+    "test_images_padded = np.pad(test_images, ((0, 0), (2, 2), (2, 2), (0, 0)), 'constant')\n",
+    "\n",
+    "# One-hot encode labels [cite: 44]\n",
+    "train_labels = to_categorical(train_labels)\n",
+    "test_labels = to_categorical(test_labels)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fd60c9ab-6d61-4001-a03c-aa6f1dbd15b4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 3: Define the LeNet-5 model architecture\n",
+    "# LeNet-5 is defined for a 32x32 input image.\n",
+    "# We will use tanh activation functions for C1 and C3/C5 (as in the original paper) \n",
+    "# and modern MaxPooling for S2 and S4 (as Keras often defaults to Max Pooling).\n",
+    "# ReLU is commonly used in modern implementations, but tanh/sigmoid were used originally.\n",
+    "\n",
+    "model_lenet5 = models.Sequential([\n",
+    "    # Input Layer (32x32x1)\n",
+    "    layers.Input(shape=(32, 32, 1)),  # Changed from 28x28 to 32x32 for classic LeNet-5\n",
+    "\n",
+    "    # C1: Convolution Layer (6 feature maps, 5x5 kernel)\n",
+    "    # 32x32 -> 28x28\n",
+    "    layers.Conv2D(6, (5, 5), activation='tanh', name='C1_Conv'),\n",
+    "\n",
+    "    # S2: Subsampling/Pooling Layer (2x2)\n",
+    "    # 28x28 -> 14x14\n",
+    "    # Original LeNet-5 used Average Pooling, but modern Keras defaults to MaxPooling \n",
+    "    # and often provides better performance. We'll stick to Average Pooling here for accuracy.\n",
+    "    layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2), name='S2_Pool'),\n",
+    "\n",
+    "    # C3: Convolution Layer (16 feature maps, 5x5 kernel)\n",
+    "    # 14x14 -> 10x10\n",
+    "    # Note: In the original paper, C3 had partial connections, but in Keras we use full connection by default.\n",
+    "    layers.Conv2D(16, (5, 5), activation='tanh', name='C3_Conv'),\n",
+    "\n",
+    "    # S4: Subsampling/Pooling Layer (2x2)\n",
+    "    # 10x10 -> 5x5\n",
+    "    layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2), name='S4_Pool'),\n",
+    "\n",
+    "    # C5: Convolution/Fully Connected Layer (120 feature maps, 5x5 kernel)\n",
+    "    # 5x5 -> 1x1x120. This layer is equivalent to a fully connected layer (FC) after flattening.\n",
+    "    layers.Conv2D(120, (5, 5), activation='tanh', name='C5_Conv'),\n",
+    "\n",
+    "    # Flatten the 1x1x120 output into a 120-element vector\n",
+    "    layers.Flatten(name='Flatten'),\n",
+    "\n",
+    "    # F6: Fully Connected Layer (84 units)\n",
+    "    layers.Dense(84, activation='tanh', name='F6_Dense'),\n",
+    "\n",
+    "    # Output Layer: Fully Connected Layer (10 units for 10 classes 0-9)\n",
+    "    # Softmax is used for probability output (classification)\n",
+    "    layers.Dense(10, activation='softmax', name='Output_Softmax')\n",
+    "])\n",
+    "\n",
+    "# Optional: Build the model explicitly and print the summary\n",
+    "# (None is used for the batch size)\n",
+    "model_lenet5.build((None, 32, 32, 1)) "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f829b039-4a57-45b6-a891-e4113db2efae",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 4: Compile the model\n",
+    "# Optimizer: Adam (handles learning rate adaptively)\n",
+    "# Loss: Categorical cross-entropy for multi-class\n",
+    "# Metrics: Accuracy to track performance\n",
+    "model_lenet5.compile(optimizer='adam',\n",
+    "              loss='categorical_crossentropy',\n",
+    "              metrics=['accuracy'])\n",
+    "\n",
+    "# Print model summary to see layers and parameters\n",
+    "model_lenet5.summary()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6d29a15a-6c48-4904-9c1c-f2f930da34c4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# --- Step 5: Train the model (Change the input images to the padded ones) ---\n",
+    "# history = model_lenet5.fit(train_images_padded, train_labels, epochs=5, batch_size=128, validation_split=0.2)\n",
+    "# The rest of your model definition (Step 3) and compilation (Step 4) remains correct\n",
+    "\n",
+    "\n",
+    "# Step 5: Train the model\n",
+    "# Epochs: 5 full passes over data\n",
+    "# Batch size: 128 examples per gradient update\n",
+    "# Validation: Use 20% of train data to monitor overfitting\n",
+    "# history = model_lenet5.fit(train_images, train_labels, epochs=5, batch_size=128, validation_split=0.2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "27d01a94-9dca-4b7c-b7e6-d5836ce7a7cd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 6: Evaluate on test data\n",
+    "test_loss, test_acc = model.evaluate(test_images, test_labels)\n",
+    "print(f'\\nTest accuracy: {test_acc:.4f}')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "706af18f-b884-4a9f-812e-21102b9abeaa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Take one test image\n",
+    "img = test_images[1:2]  # Batch of 1\n",
+    "\n",
+    "# Correct Layer Indexing based on model.summary():\n",
+    "# model.layers[0] -> Conv2D\n",
+    "# model.layers[1] -> ReLU\n",
+    "conv_layer = model.layers[0]\n",
+    "relu_layer = model.layers[1]\n",
+    "\n",
+    "# Define the extraction model\n",
+    "# FIX: Use 'conv_layer.input' instead of 'model.input' to avoid AttributeError\n",
+    "activation_model = models.Model(\n",
+    "    inputs=conv_layer.input,\n",
+    "    outputs=[conv_layer.output, relu_layer.output]\n",
+    ")\n",
+    "\n",
+    "# Get predictions\n",
+    "conv_output, relu_output = activation_model.predict(img)\n",
+    "\n",
+    "# --- Plotting ---\n",
+    "\n",
+    "plt.figure(figsize=(10, 5))\n",
+    "\n",
+    "# Plot original image\n",
+    "plt.subplot(1, 3, 1)\n",
+    "plt.title('Original Image ')\n",
+    "plt.imshow(img[0].squeeze(), cmap='gray')\n",
+    "\n",
+    "# Plot one feature map from conv (Channel 0)\n",
+    "plt.subplot(1, 3, 2)\n",
+    "plt.title('Conv Feature Map (Ch 0)')\n",
+    "# Use correct variable obtained from the fixed model\n",
+    "plt.imshow(conv_output[0, :, :, 0], cmap='gray')\n",
+    "\n",
+    "# Plot after ReLU (Channel 0)\n",
+    "plt.subplot(1, 3, 3)\n",
+    "plt.title('After ReLU (Ch 0)')\n",
+    "plt.imshow(relu_output[0, :, :, 0], cmap='gray')\n",
+    "\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.19"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
